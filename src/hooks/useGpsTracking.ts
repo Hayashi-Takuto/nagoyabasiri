@@ -30,14 +30,24 @@ export function useGpsTracking() {
       return
     }
 
-    // watchPositionで継続的に位置を監視
+    // 1. 低精度で即座に位置を取得（Wi-Fi/基地局ベース、速い）
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+      },
+      (err) => {
+        console.error('低精度位置取得エラー:', err)
+      },
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
+    )
+
+    // 2. 高精度で継続的に監視（GPS、精度高い）
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude })
       },
       (err) => {
         console.error('位置取得エラー:', err)
-        // エラーでもユーザーには表示しない（記録開始時に再度確認するため）
       },
       { enableHighAccuracy: true }
     )
