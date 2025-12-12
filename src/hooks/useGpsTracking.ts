@@ -23,23 +23,28 @@ export function useGpsTracking() {
   const watchIdRef = useRef<number | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // アプリ起動時に現在地を取得
+  // アプリ起動時から常に現在地を追跡
   useEffect(() => {
     if (!navigator.geolocation) {
       setError('このブラウザは位置情報をサポートしていません')
       return
     }
 
-    navigator.geolocation.getCurrentPosition(
+    // watchPositionで継続的に位置を監視
+    const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude })
       },
       (err) => {
-        console.error('初回位置取得エラー:', err)
+        console.error('位置取得エラー:', err)
         // エラーでもユーザーには表示しない（記録開始時に再度確認するため）
       },
       { enableHighAccuracy: true }
     )
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId)
+    }
   }, [])
 
   // Realtime購読
