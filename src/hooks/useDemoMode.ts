@@ -209,6 +209,7 @@ const DEMO_ROUTE: Position[] = [
   ...leftCheek,
   SEGMENT_BREAK,
   ...rightCheek,
+  SEGMENT_BREAK, // 最後から最初に戻るときの線を防ぐ
 ]
 
 // 2点間を補間して滑らかに移動

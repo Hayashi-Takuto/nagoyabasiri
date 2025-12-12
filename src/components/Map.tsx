@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { GpsPoint } from '@/types/database'
@@ -40,6 +40,7 @@ export default function Map({ points, currentPosition }: MapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const markerRef = useRef<L.Marker | null>(null)
   const polylinesRef = useRef<L.Polyline[]>([])
+  const [isFollowing, setIsFollowing] = useState(true)
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return
@@ -47,11 +48,21 @@ export default function Map({ points, currentPosition }: MapProps) {
     // デフォルト位置（東京駅）
     const defaultCenter: L.LatLngExpression = [35.6812, 139.7671]
 
-    mapRef.current = L.map(mapContainerRef.current).setView(defaultCenter, 15)
+    mapRef.current = L.map(mapContainerRef.current, {
+      worldCopyJump: true, // 端に到達したら反対側にジャンプしてシームレスにループ
+      minZoom: 3, // 縮小の制限（世界地図が1つ収まる程度）
+      maxBounds: [[-85, -Infinity], [85, Infinity]], // 上下のスクロールを制限（左右は無制限）
+      maxBoundsViscosity: 1.0, // 境界で完全に止まる
+    }).setView(defaultCenter, 15)
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(mapRef.current)
+
+    // ユーザーが地図を操作したら追従を停止
+    mapRef.current.on('dragstart', () => {
+      setIsFollowing(false)
+    })
 
     // カスタムアイコン設定
     const icon = L.icon({
@@ -78,8 +89,20 @@ export default function Map({ points, currentPosition }: MapProps) {
 
     const latLng: L.LatLngExpression = [currentPosition.lat, currentPosition.lng]
     markerRef.current.setLatLng(latLng)
-    mapRef.current.setView(latLng)
-  }, [currentPosition])
+
+    // 追従モードのときだけ地図を移動
+    if (isFollowing) {
+      mapRef.current.setView(latLng)
+    }
+  }, [currentPosition, isFollowing])
+
+  // 現在地に戻るボタンのハンドラ
+  const handleFollowClick = () => {
+    setIsFollowing(true)
+    if (mapRef.current && currentPosition) {
+      mapRef.current.setView([currentPosition.lat, currentPosition.lng])
+    }
+  }
 
   // ルートの更新（セグメントごとに別々のpolylineとして描画）
   useEffect(() => {
@@ -100,9 +123,20 @@ export default function Map({ points, currentPosition }: MapProps) {
   }, [points])
 
   return (
-    <div
-      ref={mapContainerRef}
-      className="absolute inset-0 w-full h-full"
-    />
+    <>
+      <div
+        ref={mapContainerRef}
+        className="absolute inset-0 w-full h-full"
+      />
+      {/* 追従モードがオフのときに現在地に戻るボタンを表示 */}
+      {!isFollowing && currentPosition && (
+        <button
+          onClick={handleFollowClick}
+          className="absolute bottom-4 right-4 z-[1000] bg-white px-4 py-2 rounded-lg shadow-lg border border-gray-300 hover:bg-gray-50 active:bg-gray-100"
+        >
+          現在地に戻る
+        </button>
+      )}
+    </>
   )
 }
